@@ -50,8 +50,8 @@ else:
 
 log('Getting commit history...')
 tmp_filename = tempfile.mktemp()
-command = 'cd "%s"; git log --shortstat %s > %s' % (path, since_commit,
-                                                    tmp_filename)
+command = 'cd %s; git log --pretty=format:author:%%ae --shortstat %s > %s' % \
+          (path, since_commit, tmp_filename)
 commits_pipe = bash(command)
 if commits_pipe.err:
     print 'ERROR:'
@@ -69,20 +69,18 @@ author = ''
 insertions = -1
 deletions = -1
 files_changed = -1
-for i, line in enumerate(commits_fp):
-    if line.startswith('commit') and i > 0:
+for line in commits_fp:
+    if line.startswith('author:'):
+        author = line[len('author:'):].strip()
         if author == '' or insertions == -1 or deletions == -1 or files_changed == -1:
             continue
         commits.append({'author': author, 'insertions': insertions,
                         'deletions': deletions,
                         'files_changed': files_changed})
-        author = ''
         insertions = -1
         deletions = -1
         files_changed = -1
-    elif line.startswith('Author'):
-        author = ' '.join(line.split()[1:])
-    elif 'insertion' in line:
+    elif line.startswith(' '):
         parameters = [int(x.strip().split()[0]) for x in line.split(',')]
         files_changed, insertions, deletions = parameters
 commits.append({'author': author, 'insertions': insertions,
@@ -94,7 +92,7 @@ commits_fp.close()
 log('Consolidating commits by author...')
 commits_consolidated_by_author = {}
 for commit in commits:
-    email = commit['author'].split('<')[1].split('>')[0]
+    email = commit['author']
     if email not in commits_consolidated_by_author:
         commits_consolidated_by_author[email] = {}
         commits_consolidated_by_author[email]['insertions'] = 0
